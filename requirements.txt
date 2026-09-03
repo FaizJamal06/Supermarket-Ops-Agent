@@ -1,0 +1,20 @@
+# Core
+anthropic>=0.34.0
+python-telegram-bot>=21.0
+
+# Database
+# SQLite is stdlib — no extra dependency
+
+# Document generation
+reportlab>=4.1
+python-pptx>=1.0
+matplotlib>=3.9
+
+# Utilities
+python-dotenv>=1.0
+thefuzz>=0.22
+python-Levenshtein>=0.25    # C extension for thefuzz speed
+
+# Testing
+pytest>=8.0
+pytest-asyncio>=0.23
