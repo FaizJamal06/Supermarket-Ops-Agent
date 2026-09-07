@@ -32,45 +32,29 @@ def lookup_product(query: str) -> dict:
     Multiple matches → the LLM should ask the owner to disambiguate.
     """
     conn = get_connection()
-    products = conn.execute(
-        "SELECT sku_id, name, unit, is_loose, hsn_code, gst_rate_bps, "
-        "cost_price_paise, mrp_paise, sell_price_paise FROM products"
-    ).fetchall()
 
-    query_lower = query.lower().strip()
+    tokens = [t.strip().lower() for t in query.split() if t.strip()]
+    if not tokens:
+        return {"matches": [], "error": "not_found", "message": "Empty query."}
 
-    # Exact SKU match (fast path)
-    for p in products:
-        if p["sku_id"].lower() == query_lower:
-            stock = _get_stock_qty(conn, p["sku_id"])
-            return {"matches": [_product_to_dict(p, stock)]}
+    clauses = []
+    params = []
+    for t in tokens:
+        clauses.append("(LOWER(name) LIKE ? OR LOWER(sku_id) LIKE ?)")
+        params.extend([f"%{t}%", f"%{t}%"])
 
-    # Score each product using multiple fuzzy strategies
-    scored = []
-    for p in products:
-        name_lower = p["name"].lower()
+    sql = f"SELECT sku_id, name, unit, is_loose, hsn_code, gst_rate_bps, cost_price_paise, mrp_paise, sell_price_paise FROM products WHERE {' AND '.join(clauses)}"
+    
+    products = conn.execute(sql, params).fetchall()
 
-        # Exact substring containment — strongest signal
-        if query_lower in name_lower or name_lower in query_lower:
-            score = 95
-        else:
-            # Use the best of token_set_ratio (handles reordering/extra tokens)
-            # and partial_ratio (handles substring typos like "ashirvad" → "aashirvaad")
-            score = max(
-                fuzz.token_set_ratio(query_lower, name_lower),
-                fuzz.partial_ratio(query_lower, name_lower),
-            )
-
-        if score >= 60:  # threshold — 60 eliminates noise while catching real typos
-            stock = _get_stock_qty(conn, p["sku_id"])
-            scored.append((score, _product_to_dict(p, stock)))
-
-    scored.sort(key=lambda x: x[0], reverse=True)
-    matches = [item for _, item in scored]
-
-    if not matches:
+    if not products:
         return {"matches": [], "error": "not_found",
                 "message": f"No product found matching '{query}'. Use create_product to add it."}
+
+    matches = []
+    for p in products:
+        stock = _get_stock_qty(conn, p["sku_id"])
+        matches.append(_product_to_dict(p, stock))
 
     return {"matches": matches}
 

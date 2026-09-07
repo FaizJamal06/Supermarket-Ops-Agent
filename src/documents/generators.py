@@ -22,7 +22,7 @@ def _ensure_dir():
         os.makedirs(GENERATED_DIR)
 
 
-def generate_invoice_pdf(bill_id: str) -> dict:
+def generate_invoice_pdf(chat_id: str, bill_id: str = None) -> dict:
     """
     Generate an A4 PDF invoice for a finalized bill using ReportLab.
     Matches Indian GST invoice standards (simplified).
@@ -32,6 +32,16 @@ def generate_invoice_pdf(bill_id: str) -> dict:
         or {error: ...}
     """
     conn = get_connection()
+    
+    if not bill_id:
+        row = conn.execute(
+            "SELECT bill_id FROM bills WHERE chat_id = ? ORDER BY created_at DESC LIMIT 1",
+            (chat_id,)
+        ).fetchone()
+        if not row:
+            return {"error": "no_bills_found", "message": "No recent bills found for this chat."}
+        bill_id = row["bill_id"]
+        
     bill = conn.execute(
         "SELECT * FROM bills WHERE bill_id = ?", (bill_id,)
     ).fetchone()
@@ -55,15 +65,22 @@ def generate_invoice_pdf(bill_id: str) -> dict:
 
         # Header
         c.setFont("Helvetica-Bold", 16)
-        c.drawString(50, height - 50, "TAX INVOICE")
+        c.drawString(50, height - 50, "Nebula Kirana Store")
         c.setFont("Helvetica", 10)
-        c.drawString(50, height - 70, f"Invoice Number: {bill_id[:8].upper()}")
-        c.drawString(50, height - 85, f"Date: {bill['finalized_at'][:10]}")
+        c.drawString(50, height - 65, "Coimbatore, Tamil Nadu")
+        c.setFont("Helvetica-Oblique", 8)
+        c.drawString(50, height - 75, "KiranaOS Powered")
+        
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(50, height - 100, "TAX INVOICE")
+        c.setFont("Helvetica", 10)
+        c.drawString(50, height - 120, f"Invoice Number: {bill_id[:8].upper()}")
+        c.drawString(50, height - 135, f"Date: {bill['finalized_at'][:10]}")
         if bill["customer_name"]:
-            c.drawString(50, height - 100, f"Customer: {bill['customer_name']}")
+            c.drawString(50, height - 150, f"Customer: {bill['customer_name']}")
 
         # Table Header
-        y = height - 140
+        y = height - 180
         c.setFont("Helvetica-Bold", 10)
         c.drawString(50, y, "Item")
         c.drawString(250, y, "HSN")
@@ -110,7 +127,7 @@ def generate_invoice_pdf(bill_id: str) -> dict:
 
         return {
             "file_path": file_path,
-            "message": f"Generated invoice PDF at {file_path}",
+            "message": "PDF generated successfully and uploaded",
         }
     except Exception as e:
         return {"error": "pdf_generation_failed", "message": str(e)}
@@ -182,7 +199,7 @@ def generate_analysis_deck(target_date: str) -> dict:
 
         return {
             "file_path": file_path,
-            "message": f"Generated analysis deck at {file_path}",
+            "message": "PPTX generated successfully and uploaded",
         }
     except Exception as e:
         return {"error": "pptx_generation_failed", "message": str(e)}

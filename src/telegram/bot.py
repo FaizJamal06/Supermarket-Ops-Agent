@@ -60,11 +60,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_chat_action(chat_id=chat_id, action='typing')
 
     try:
-        # Run the Anthropic loop
-        reply_text = process_message(owner_id, chat_id, text)
+        # Run the agent loop
+        reply_text, files = process_message(owner_id, chat_id, text)
         
-        # Send reply
+        # Send reply text
         await context.bot.send_message(chat_id=chat_id, text=reply_text)
+        
+        # Send any generated document artifacts (PDF invoices, PPTX decks, etc.)
+        for f_path in files:
+            # Resolve relative paths (e.g. "generated/INV_xxx.pdf") to absolute
+            abs_path = os.path.abspath(f_path)
+            if os.path.exists(abs_path):
+                with open(abs_path, 'rb') as doc:
+                    await context.bot.send_document(
+                        chat_id=chat_id,
+                        document=doc,
+                        filename=os.path.basename(abs_path),
+                        caption="Here is your requested document.",
+                    )
+                logger.info(f"Sent document to chat {chat_id}: {abs_path}")
+            else:
+                logger.error(f"Generated file not found on disk: {abs_path} (original: {f_path})")
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=f"⚠️ The document was generated but could not be found on disk: {os.path.basename(f_path)}",
+                )
         
         # Mark processed
         _mark_update_processed(update_id)
