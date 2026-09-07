@@ -73,6 +73,8 @@ python main.py
 ```
 
 ### 2. Deploying to the Cloud (Render / Railway / VPS)
+> **Note:** The original deployment on Railway has been disabled as the trial period has expired. You will need to host this yourself using the instructions below.
+
 To deploy this so others can use it 24/7 without your laptop open:
 
 1. **Push to GitHub**: Commit this codebase to a private or public GitHub repository.
